@@ -138,6 +138,26 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:
 /* ═══ SELECTION RING ════════════════════════════════════════════ */
 #sel-label{position:fixed;background:rgba(15,163,163,0.9);color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;pointer-events:none;display:none;z-index:50;white-space:nowrap;transform:translate(-50%,-200%)}
 
+/* ═══ MOBILE SEARCH + AREA BAR ══════════════════════════════════ */
+#mob-search-bar{
+  display:none;position:fixed;top:50px;left:0;right:0;
+  background:var(--panel);backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--panel-border);
+  padding:6px 10px;z-index:99;gap:6px;flex-direction:column;
+}
+#mob-search-input{
+  width:100%;background:rgba(15,163,163,0.1);
+  border:1px solid var(--panel-border);border-radius:20px;
+  padding:7px 14px;color:var(--text);font-size:12px;outline:none;
+}
+#mob-search-input::placeholder{color:var(--text2)}
+#mob-area-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+#mob-area-row::-webkit-scrollbar{display:none}
+.mob-area-btn{background:rgba(15,163,163,0.1);border:1px solid var(--panel-border);
+  border-radius:14px;padding:5px 12px;color:var(--text2);font-size:11px;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;min-height:32px;transition:all .2s}
+.mob-area-btn.active,.mob-area-btn:active{background:rgba(15,163,163,0.3);color:var(--text);border-color:var(--accent)}
+
 /* ═══ MOBILE (<= 640px) ═════════════════════════════════════════ */
 @media(max-width:640px){
   /* Topbar */
@@ -149,8 +169,11 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:
   #clock-box{font-size:11px;padding:3px 7px;min-width:52px}
   #weather-btn{font-size:10px;padding:3px 8px}
 
-  /* KPI horizontal scroll */
-  #kpi-row{top:50px;left:0;right:0;padding:6px 8px;gap:7px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  /* Show mobile search + area bar */
+  #mob-search-bar{display:flex}
+
+  /* KPI strip pushed down below search bar (~94px total) */
+  #kpi-row{top:94px;left:0;right:0;padding:6px 8px;gap:7px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   #kpi-row::-webkit-scrollbar{display:none}
   .kpi{flex:0 0 130px;min-width:130px;padding:8px 12px;border-radius:10px}
   .kpi-val{font-size:17px}
@@ -235,6 +258,17 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:
   <button id="daynight-btn" onclick="toggleDayNight()" title="Day/Night">🌙</button>
   <div id="alert-dot"></div>
   <div id="user-av">CP</div>
+</div>
+
+<!-- MOBILE SEARCH + AREA BAR -->
+<div id="mob-search-bar">
+  <input id="mob-search-input" placeholder="🔍 Search berth, crane, vessel…" autocomplete="off"/>
+  <div id="mob-area-row">
+    <button class="mob-area-btn active" onclick="mobAreaBtn(this,'berths')">🚢 Berths</button>
+    <button class="mob-area-btn" onclick="mobAreaBtn(this,'yard')">📦 Yard</button>
+    <button class="mob-area-btn" onclick="mobAreaBtn(this,'gate')">🚦 Gate</button>
+    <button class="mob-area-btn" onclick="mobAreaBtn(this,'rail')">🚂 Rail</button>
+  </div>
 </div>
 
 <!-- KPI CARDS -->
@@ -1109,16 +1143,18 @@ function renderSheetContent(){
     </div>`;
   } else {
     const tData=tableData[currentSheetTab]||tableData.berths;
-    const badgeMap={Active:'go',Idle:'hold',Discharging:'go',Loading:'warn',Prep:'warn',Scheduled:'warn',Available:'ok'};
-    el.innerHTML=`<div style="padding:4px 4px">
-      ${tData.map(r=>{const bc=badgeMap[r[3]]||'hold';return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid rgba(15,163,163,0.08);font-size:11px">
-        <div>
-          <div style="color:var(--text);font-weight:600">${r[0]}</div>
-          <div style="color:var(--text2);font-size:10px;margin-top:2px">${r[1]} · ${r[2]}</div>
-        </div>
-        <span class="badge ${bc}">${r[3]}</span>
-      </div>`;}).join('')}
-    </div>`;
+    const hdrMap={berths:['Vessel','Operator','Capacity','Status'],equipment:['Unit','Type','Status','Location'],containers:['ISO Number','Size','Weight','Position']};
+    const hdr=hdrMap[currentSheetTab]||hdrMap.berths;
+    const badgeMap={Active:'go',Idle:'hold',Discharging:'go',Loading:'warn',Prep:'warn',Scheduled:'warn',Available:'ok',Reefer:'go','On ship':'warn'};
+    let html=`<div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.8fr;gap:5px;padding:7px 6px 4px;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;border-bottom:1px solid var(--panel-border)">
+      ${hdr.map(h=>`<span>${h}</span>`).join('')}</div>`;
+    tData.forEach(r=>{
+      const bc=badgeMap[r[3]]||'hold';
+      html+=`<div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.8fr;gap:5px;padding:9px 6px;border-bottom:1px solid rgba(15,163,163,0.07);font-size:10px;align-items:center;cursor:pointer" onclick="">
+        ${r.map((c,i)=>i===3?`<span class="badge ${bc}">${c}</span>`:`<span style="color:${i===0?'var(--text)':'var(--text2)'}">${c}</span>`).join('')}
+      </div>`;
+    });
+    el.innerHTML=`<div style="padding:0 2px">${html}</div>`;
   }
 }
 setInterval(()=>{if(sheetOpen&&currentSheetTab==='telemetry')renderSheetContent();},1000);
@@ -1139,6 +1175,25 @@ window.flyToArea=flyToArea;window.setWeather=setWeather;
 window.toggleWeatherMenu=toggleWeatherMenu;window.toggleDayNight=toggleDayNight;
 window.showTab=showTab;window.toggleSheet=toggleSheet;
 window.showSheetTab=showSheetTab;window.mobNav=mobNav;
+
+// ─── MOBILE SEARCH + AREA BAR ──────────────────────────────────
+function mobAreaBtn(el,area){
+  document.querySelectorAll('.mob-area-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  flyToArea(area);
+}
+document.getElementById('mob-search-input').addEventListener('keydown',function(e){
+  if(e.key!=='Enter')return;
+  const q=e.target.value.toLowerCase();
+  if(q.includes('berth')||q.includes('ship')||q.includes('vessel'))flyToArea('berths');
+  else if(q.includes('yard')||q.includes('rtg')||q.includes('container'))flyToArea('yard');
+  else if(q.includes('gate'))flyToArea('gate');
+  else if(q.includes('rail')||q.includes('train'))flyToArea('rail');
+  else if(q.includes('crane')||q.includes('sts'))flyToArea('berths');
+  e.target.value='';
+  e.target.blur();
+});
+window.mobAreaBtn=mobAreaBtn;
 
 notify('🚢 Berthwise — Constellation Port live');
 requestAnimationFrame(animate);
