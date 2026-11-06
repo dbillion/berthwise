@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#06111a">
+<title>Berthwise — Container Port Terminal</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2306111a'/><rect x='4' y='18' width='24' height='8' rx='2' fill='%230FA3A3'/><rect x='8' y='12' width='7' height='7' rx='1' fill='%230FA3A3' opacity='.7'/><rect x='17' y='12' width='7' height='7' rx='1' fill='%230FA3A3' opacity='.5'/></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --accent:#0FA3A3;
+  --accent2:#2dd4d4;
+  --bg:#06111a;
+  --panel:rgba(6,17,26,0.78);
+  --panel-border:rgba(15,163,163,0.28);
+  --text:#e0f2f2;
+  --text2:#7ecece;
+  --glass-blur:blur(16px) saturate(1.5);
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;touch-action:none}
+
+/* ═══ TOP BAR ═══════════════════════════════════════════════════ */
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:52px;
+  background:var(--panel);backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--panel-border);
+  display:flex;align-items:center;gap:10px;padding:0 16px;z-index:100
+}
+#logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;color:var(--accent2);white-space:nowrap;text-decoration:none;cursor:pointer}
+#logo svg{flex-shrink:0}
+#search-wrap{position:relative;flex:0 0 200px}
+#search-box{width:100%;background:rgba(15,163,163,0.1);border:1px solid var(--panel-border);border-radius:20px;padding:5px 12px;color:var(--text);font-size:12px;outline:none;transition:border .2s}
+#search-box:focus{border-color:var(--accent)}
+#search-box::placeholder{color:var(--text2)}
+#area-switcher{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+#area-switcher::-webkit-scrollbar{display:none}
+.area-btn{background:rgba(15,163,163,0.1);border:1px solid var(--panel-border);border-radius:16px;padding:4px 12px;color:var(--text2);font-size:11px;cursor:pointer;white-space:nowrap;transition:all .2s;min-height:28px}
+.area-btn.active,.area-btn:hover{background:rgba(15,163,163,0.3);color:var(--text);border-color:var(--accent)}
+.spacer{flex:1}
+#clock-box{font-size:13px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;min-width:60px;text-align:center;background:rgba(15,163,163,0.1);border:1px solid var(--panel-border);border-radius:12px;padding:4px 10px;white-space:nowrap}
+#weather-wrap{position:relative}
+#weather-btn{background:rgba(15,163,163,0.1);border:1px solid var(--panel-border);border-radius:16px;padding:4px 12px;color:var(--text2);font-size:11px;cursor:pointer;white-space:nowrap;transition:all .2s;min-height:28px}
+#weather-btn:hover{background:rgba(15,163,163,0.3);color:var(--text)}
+#weather-menu{position:absolute;top:calc(100% + 6px);right:0;background:rgba(6,17,26,0.97);border:1px solid var(--panel-border);border-radius:10px;padding:6px;display:none;min-width:150px;z-index:300;backdrop-filter:var(--glass-blur)}
+#weather-menu.open{display:block}
+.weather-opt{padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--text2);transition:all .15s}
+.weather-opt:hover,.weather-opt.active{background:rgba(15,163,163,0.2);color:var(--text)}
+#daynight-btn{background:rgba(15,163,163,0.1);border:1px solid var(--panel-border);border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+#daynight-btn:hover{background:rgba(15,163,163,0.3)}
+#alert-dot{width:8px;height:8px;background:#ef4444;border-radius:50%;flex-shrink:0;animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+#user-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+
+/* ═══ KPI CARDS ══════════════════════════════════════════════════ */
+#kpi-row{position:fixed;top:62px;left:16px;display:flex;gap:10px;z-index:90}
+.kpi{background:var(--panel);backdrop-filter:var(--glass-blur);border:1px solid var(--panel-border);border-radius:12px;padding:11px 16px;min-width:148px;cursor:pointer;transition:border-color .2s}
+.kpi:hover{border-color:var(--accent)}
+.kpi-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+.kpi-val{font-size:22px;font-weight:700;color:var(--text);line-height:1.2;margin:3px 0 1px}
+.kpi-sub{font-size:10px;color:var(--accent2)}
+.kpi-delta{font-size:9px;color:#22c55e;margin-left:4px}
+
+/* ═══ VESSEL TRACKER ═════════════════════════════════════════════ */
+#tracker{position:fixed;bottom:16px;left:16px;width:270px;background:var(--panel);backdrop-filter:var(--glass-blur);border:1px solid var(--panel-border);border-radius:14px;padding:12px 14px;z-index:90}
+#tracker h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.vt-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(15,163,163,0.1)}
+.vt-row:last-child{border:none}
+.vt-dot{width:8px;height:8px;border-radius:50%;background:rgba(15,163,163,0.3);flex-shrink:0;transition:all .4s}
+.vt-dot.done{background:#22c55e}
+.vt-dot.active{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:dot-pulse 1.2s infinite}
+@keyframes dot-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+.vt-name{font-size:11px;color:var(--text);flex:1}
+.vt-time{font-size:10px;color:var(--text2);font-variant-numeric:tabular-nums}
+
+/* ═══ DETAIL PANEL ═══════════════════════════════════════════════ */
+#detail-panel{position:fixed;top:62px;right:16px;width:240px;background:var(--panel);backdrop-filter:var(--glass-blur);border:1px solid var(--panel-border);border-radius:14px;padding:14px;z-index:90;transition:opacity .3s,transform .3s}
+#detail-panel h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px}
+.d-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(15,163,163,0.08);font-size:11px}
+.d-row:last-child{border:none}
+.d-key{color:var(--text2)}
+.d-val{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.d-val.accent{color:var(--accent2)}
+
+/* ═══ TABLE PANEL ════════════════════════════════════════════════ */
+#table-panel{position:fixed;bottom:16px;right:16px;width:380px;background:var(--panel);backdrop-filter:var(--glass-blur);border:1px solid var(--panel-border);border-radius:14px;overflow:hidden;z-index:90;max-height:290px}
+#table-tabs{display:flex;border-bottom:1px solid var(--panel-border)}
+.tab-btn{flex:1;padding:9px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;color:var(--text2);text-align:center;transition:all .2s;border:none;background:transparent;min-height:36px}
+.tab-btn.active,.tab-btn:hover{background:rgba(15,163,163,0.15);color:var(--text)}
+#table-body{overflow-y:auto;max-height:234px;padding:4px 6px;-webkit-overflow-scrolling:touch}
+#table-body::-webkit-scrollbar{width:4px}
+#table-body::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px}
+.tr-row{display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.8fr;gap:5px;padding:7px 6px;border-bottom:1px solid rgba(15,163,163,0.07);font-size:10px;align-items:center;cursor:pointer;border-radius:6px;transition:background .15s}
+.tr-row:hover{background:rgba(15,163,163,0.1)}
+.tr-row:last-child{border:none}
+.tr-head{color:var(--text2);font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.07em}
+.badge{padding:2px 7px;border-radius:8px;font-size:9px;font-weight:600;text-transform:uppercase;white-space:nowrap}
+.badge.ok{background:rgba(34,197,94,0.15);color:#22c55e}
+.badge.go{background:rgba(15,163,163,0.2);color:var(--accent2)}
+.badge.warn{background:rgba(251,146,60,0.15);color:#fb923c}
+.badge.hold{background:rgba(239,68,68,0.15);color:#ef4444}
+
+/* ═══ LARGE SCREEN BONUS COLUMN ══════════════════════════════════ */
+@media(min-width:1400px){
+  #kpi-row{gap:14px}
+  .kpi{min-width:170px;padding:14px 20px}
+  .kpi-val{font-size:26px}
+  #detail-panel{width:270px}
+  #table-panel{width:440px}
+  #tracker{width:300px}
+  #topbar{padding:0 24px;gap:14px}
+  #search-wrap{flex:0 0 260px}
+}
+@media(min-width:1800px){
+  /* Extra stats panel on the left for ultra-wide */
+  #extra-panel{display:block}
+}
+#extra-panel{
+  display:none;position:fixed;top:62px;left:16px;width:220px;
+  background:var(--panel);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--panel-border);border-radius:14px;padding:14px;z-index:90
+}
+#extra-panel h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px}
+.ep-stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(15,163,163,0.08);font-size:11px}
+.ep-stat:last-child{border:none}
+
+/* ═══ RAIN / LIGHTNING ══════════════════════════════════════════ */
+#rain-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:5;pointer-events:none;display:none}
+#lightning{position:fixed;top:0;left:0;width:100%;height:100%;background:transparent;z-index:6;pointer-events:none;transition:background .05s}
+
+/* ═══ NOTIFICATION ══════════════════════════════════════════════ */
+#notif{position:fixed;top:62px;left:50%;transform:translateX(-50%);background:rgba(15,163,163,0.92);color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap;max-width:90vw;text-align:center}
+
+/* ═══ SELECTION RING ════════════════════════════════════════════ */
+#sel-label{position:fixed;background:rgba(15,163,163,0.9);color:#fff;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;pointer-events:none;display:none;z-index:50;white-space:nowrap;transform:translate(-50%,-200%)}
+
+/* ═══ MOBILE (<= 640px) ═════════════════════════════════════════ */
+@media(max-width:640px){
+  /* Topbar */
+  #topbar{padding:0 10px;gap:6px;height:50px}
+  #logo{font-size:14px}#logo svg{width:16px;height:16px}
+  #search-wrap{display:none}
+  #area-switcher{display:none}
+  .spacer{flex:1}
+  #clock-box{font-size:11px;padding:3px 7px;min-width:52px}
+  #weather-btn{font-size:10px;padding:3px 8px}
+
+  /* KPI horizontal scroll */
+  #kpi-row{top:50px;left:0;right:0;padding:6px 8px;gap:7px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #kpi-row::-webkit-scrollbar{display:none}
+  .kpi{flex:0 0 130px;min-width:130px;padding:8px 12px;border-radius:10px}
+  .kpi-val{font-size:17px}
+  .kpi-label{font-size:9px}
+
+  /* Hide desktop panels */
+  #tracker{display:none}#table-panel{display:none}#detail-panel{display:none}
+
+  /* Show mobile UI */
+  #mob-nav{display:flex}
+  #bottom-sheet{display:block}
+  canvas{height:calc(100% - 56px)!important}
+  #notif{bottom:70px;top:auto}
+}
+@media(max-width:380px){
+  .kpi{flex:0 0 110px;min-width:110px}
+  #clock-box{display:none}
+}
+
+/* ═══ BOTTOM SHEET (mobile) ═════════════════════════════════════ */
+#bottom-sheet{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:rgba(6,17,26,0.97);backdrop-filter:var(--glass-blur);
+  border-top:1px solid var(--panel-border);border-radius:20px 20px 0 0;
+  z-index:150;transition:transform .35s cubic-bezier(.4,0,.2,1);
+  transform:translateY(calc(100% - 56px));max-height:80vh;overflow:hidden
+}
+#bottom-sheet.expanded{transform:translateY(0)}
+#sheet-handle{display:flex;align-items:center;justify-content:center;padding:10px 16px 6px;cursor:pointer;user-select:none;position:relative;min-height:36px}
+#sheet-pill{width:36px;height:4px;border-radius:2px;background:rgba(15,163,163,0.4)}
+#sheet-label{position:absolute;left:16px;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+#sheet-arrow{position:absolute;right:16px;font-size:12px;color:var(--text2)}
+#sheet-tabs{display:flex;border-bottom:1px solid var(--panel-border)}
+.stab{flex:1;padding:9px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;color:var(--text2);text-align:center;border:none;background:transparent;min-height:40px;transition:all .2s}
+.stab.active{background:rgba(15,163,163,0.15);color:var(--text)}
+#sheet-body{overflow-y:auto;max-height:calc(80vh - 100px);padding:4px 10px 24px;-webkit-overflow-scrolling:touch}
+
+/* ═══ MOBILE BOTTOM NAV ═════════════════════════════════════════ */
+#mob-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;height:56px;
+  background:var(--panel);backdrop-filter:var(--glass-blur);
+  border-top:1px solid var(--panel-border);z-index:120;flex-direction:row;align-items:stretch
+}
+.mnb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;border:none;background:transparent;color:var(--text2);font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:4px 2px;min-height:44px;transition:color .2s}
+.mnb.active,.mnb:active{color:var(--accent2)}
+.mnb svg{opacity:.65}.mnb.active svg,.mnb:active svg{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <a id="logo" href="#">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <rect x="1" y="13" width="20" height="8" rx="2" fill="#0FA3A3" opacity=".85"/>
+      <rect x="3" y="7" width="6" height="7" rx="1" fill="#2dd4d4" opacity=".9"/>
+      <rect x="11" y="7" width="6" height="7" rx="1" fill="#2dd4d4" opacity=".6"/>
+      <rect x="7" y="4" width="4" height="4" rx=".5" fill="#0FA3A3"/>
+    </svg>
+    Berthwise
+  </a>
+  <div id="search-wrap">
+    <input id="search-box" placeholder="🔍 Search berth, crane, vessel…" autocomplete="off"/>
+  </div>
+  <div id="area-switcher">
+    <button class="area-btn active" onclick="flyToArea('berths')">Berths</button>
+    <button class="area-btn" onclick="flyToArea('yard')">Yard</button>
+    <button class="area-btn" onclick="flyToArea('gate')">Gate</button>
+    <button class="area-btn" onclick="flyToArea('rail')">Rail</button>
+  </div>
+  <div class="spacer"></div>
+  <div id="clock-box">00:00:00</div>
+  <div id="weather-wrap">
+    <button id="weather-btn" onclick="toggleWeatherMenu()">☀️ Clear ▾</button>
+    <div id="weather-menu">
+      <div class="weather-opt active" onclick="setWeather('clear')">☀️ Clear</div>
+      <div class="weather-opt" onclick="setWeather('monsoon')">⛈️ Monsoon</div>
+      <div class="weather-opt" onclick="setWeather('fog')">🌫️ Fog</div>
+      <div class="weather-opt" onclick="setWeather('storm')">🌊 Storm</div>
+    </div>
+  </div>
+  <button id="daynight-btn" onclick="toggleDayNight()" title="Day/Night">🌙</button>
+  <div id="alert-dot"></div>
+  <div id="user-av">CP</div>
+</div>
+
+<!-- KPI CARDS -->
+<div id="kpi-row">
+  <div class="kpi" onclick="showTab('equipment')">
+    <div class="kpi-label">Moves / Hour</div>
+    <div class="kpi-val" id="kpi-mph">0<span class="kpi-delta">↑</span></div>
+    <div class="kpi-sub">crane cycles</div>
+  </div>
+  <div class="kpi" onclick="showTab('containers')">
+    <div class="kpi-label">Yard Utilisation</div>
+    <div class="kpi-val" id="kpi-util">72<span style="font-size:14px">%</span></div>
+    <div class="kpi-sub" id="kpi-teu">48 220 TEU stored</div>
+  </div>
+  <div class="kpi" onclick="showTab('berths')">
+    <div class="kpi-label">Vessels at Berth</div>
+    <div class="kpi-val" id="kpi-vessels">2</div>
+    <div class="kpi-sub">of 4 berths occupied</div>
+  </div>
+</div>
+
+<!-- VESSEL TRACKER -->
+<div id="tracker">
+  <h3>Vessel Tracker <span id="tracker-vessel" style="color:var(--accent2);font-weight:700">EVER GRACE</span></h3>
+  <div class="vt-row"><div class="vt-dot done" id="vt0"></div><div class="vt-name">Arrived</div><div class="vt-time" id="vtt0">06:14</div></div>
+  <div class="vt-row"><div class="vt-dot done" id="vt1"></div><div class="vt-name">Berthed</div><div class="vt-time" id="vtt1">06:38</div></div>
+  <div class="vt-row"><div class="vt-dot active" id="vt2"></div><div class="vt-name">Discharging</div><div class="vt-time" id="vtt2">07:05</div></div>
+  <div class="vt-row"><div class="vt-dot" id="vt3"></div><div class="vt-name">Loading</div><div class="vt-time" id="vtt3">10:30</div></div>
+  <div class="vt-row"><div class="vt-dot" id="vt4"></div><div class="vt-name">Lashing</div><div class="vt-time" id="vtt4">14:00</div></div>
+  <div class="vt-row"><div class="vt-dot" id="vt5"></div><div class="vt-name">Sailed</div><div class="vt-time" id="vtt5">15:20</div></div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail-panel">
+  <h3 id="d-title">Port Overview</h3>
+  <div class="d-row"><span class="d-key">Object</span><span class="d-val accent" id="d-name">Constellation Port</span></div>
+  <div class="d-row"><span class="d-key">Status</span><span class="d-val" id="d-status">Operational</span></div>
+  <div class="d-row"><span class="d-key">Containers</span><span class="d-val" id="d-containers">—</span></div>
+  <div class="d-row"><span class="d-key">Moves</span><span class="d-val" id="d-moves">—</span></div>
+  <div class="d-row"><span class="d-key">Weight</span><span class="d-val" id="d-weight">—</span></div>
+  <div class="d-row"><span class="d-key">ETA next</span><span class="d-val" id="d-eta">—</span></div>
+</div>
+
+<!-- TABLE PANEL -->
+<div id="table-panel">
+  <div id="table-tabs">
+    <button class="tab-btn active" onclick="showTab('berths')">Berths</button>
+    <button class="tab-btn" onclick="showTab('equipment')">Equipment</button>
+    <button class="tab-btn" onclick="showTab('containers')">Containers</button>
+  </div>
+  <div id="table-body"></div>
+</div>
+
+<!-- EXTRA PANEL (ultra-wide) -->
+<div id="extra-panel">
+  <h3>Live Port Stats</h3>
+  <div class="ep-stat"><span style="color:var(--text2)">Cranes active</span><span style="color:var(--accent2)" id="ep-cranes">4</span></div>
+  <div class="ep-stat"><span style="color:var(--text2)">Trucks in yard</span><span style="color:var(--accent2)" id="ep-trucks">12</span></div>
+  <div class="ep-stat"><span style="color:var(--text2)">Gate throughput</span><span style="color:var(--accent2)" id="ep-gate">340/hr</span></div>
+  <div class="ep-stat"><span style="color:var(--text2)">Rail wagon fills</span><span style="color:var(--accent2)" id="ep-rail">18/22</span></div>
+  <div class="ep-stat"><span style="color:var(--text2)">Wind speed</span><span style="color:var(--accent2)" id="ep-wind">12 kn</span></div>
+  <div class="ep-stat"><span style="color:var(--text2)">Tide</span><span style="color:var(--accent2)" id="ep-tide">+2.3 m</span></div>
+</div>
+
+<!-- MOBILE BOTTOM SHEET -->
+<div id="bottom-sheet">
+  <div id="sheet-handle" onclick="toggleSheet()">
+    <span id="sheet-label">Operations</span>
+    <div id="sheet-pill"></div>
+    <span id="sheet-arrow">▲</span>
+  </div>
+  <div id="sheet-tabs">
+    <button class="stab active" onclick="showSheetTab('tracker')">Vessel</button>
+    <button class="stab" onclick="showSheetTab('telemetry')">Live</button>
+    <button class="stab" onclick="showSheetTab('berths')">Berths</button>
+    <button class="stab" onclick="showSheetTab('equipment')">Equip</button>
+    <button class="stab" onclick="showSheetTab('containers')">Boxes</button>
+  </div>
+  <div id="sheet-body"></div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<div id="mob-nav">
+  <button class="mnb active" onclick="mobNav(this,'berths')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="11" width="16" height="6" rx="1.5" fill="currentColor" opacity=".8"/><rect x="3" y="6" width="5" height="6" rx="1" fill="currentColor"/><rect x="10" y="6" width="5" height="6" rx="1" fill="currentColor" opacity=".6"/></svg>
+    Berths
+  </button>
+  <button class="mnb" onclick="mobNav(this,'yard')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="4" height="4" rx=".5" fill="currentColor"/><rect x="7" y="4" width="4" height="4" rx=".5" fill="currentColor" opacity=".7"/><rect x="12" y="4" width="4" height="4" rx=".5" fill="currentColor" opacity=".5"/><rect x="2" y="10" width="4" height="4" rx=".5" fill="currentColor" opacity=".6"/><rect x="7" y="10" width="4" height="4" rx=".5" fill="currentColor" opacity=".8"/><rect x="12" y="10" width="4" height="4" rx=".5" fill="currentColor"/></svg>
+    Yard
+  </button>
+  <button class="mnb" onclick="mobNav(this,'gate')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="6" width="6" height="10" rx="1" fill="currentColor" opacity=".8"/><rect x="10" y="6" width="6" height="10" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="4" width="16" height="3" rx="1" fill="currentColor"/></svg>
+    Gate
+  </button>
+  <button class="mnb" onclick="mobNav(this,'rail')">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="8" width="16" height="3" rx="1" fill="currentColor"/><rect x="4" y="5" width="10" height="4" rx="1" fill="currentColor" opacity=".7"/><circle cx="4" cy="12" r="2" fill="currentColor" opacity=".6"/><circle cx="14" cy="12" r="2" fill="currentColor" opacity=".6"/></svg>
+    Rail
+  </button>
+  <button class="mnb" onclick="toggleSheet()">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="2.5" rx="1" fill="currentColor"/><rect x="2" y="7.5" width="14" height="2.5" rx="1" fill="currentColor"/><rect x="2" y="12" width="14" height="2.5" rx="1" fill="currentColor"/></svg>
+    Data
+  </button>
+</div>
+
+<canvas id="rain-canvas"></canvas>
+<div id="lightning"></div>
+<div id="notif"></div>
+<div id="sel-label"></div>
+
+<script>
+(function(){
+  function loadScript(src,cb){var s=document.createElement('script');s.src=src;s.onload=cb;s.onerror=function(){var s2=document.createElement('script');s2.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';s2.onload=cb;document.head.appendChild(s2)};document.head.appendChild(s)}
+  function loadOC(cb){var s=document.createElement('script');s.src='js/OrbitControls.js';s.onload=cb;s.onerror=function(){var s2=document.createElement('script');s2.src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';s2.onload=cb;document.head.appendChild(s2)};document.head.appendChild(s)}
+  loadScript('js/three.min.js',function(){loadOC(initApp)});
+})();
+</script>
+<script>
+function initApp(){
+// ─── RENDERER ──────────────────────────────────────────────────
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+document.body.insertBefore(renderer.domElement,document.body.firstChild);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x08141e);
+scene.fog=new THREE.Fog(0x08141e,180,350);
+
+const camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,600);
+camera.position.set(90,70,100);camera.lookAt(0,0,0);
+
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=0.08;
+controls.maxPolarAngle=Math.PI/2.1;controls.minDistance=20;controls.maxDistance=320;
+
+// ─── SCRATCH ───────────────────────────────────────────────────
+const _v3=new THREE.Vector3();const _v3b=new THREE.Vector3();
+
+// ─── CONTAINER COLOURS ─────────────────────────────────────────
+const CONT_COLORS=[0xe63946,0x2a9d8f,0xe9c46a,0x264653,0xf4a261,0x0FA3A3,0x6a4c93,0xffffff,0x118ab2];
+
+// ─── MATERIALS ─────────────────────────────────────────────────
+const M={
+  ground: new THREE.MeshLambertMaterial({color:0x0d1e28}),
+  quay:   new THREE.MeshLambertMaterial({color:0x1a2d3a}),
+  water:  new THREE.MeshLambertMaterial({color:0x0a3850,transparent:true,opacity:0.88}),
+  ship1:  new THREE.MeshLambertMaterial({color:0x2a3f52}),
+  ship2:  new THREE.MeshLambertMaterial({color:0x1f3444}),
+  crane:  new THREE.MeshLambertMaterial({color:0xffcc00,emissive:0x885500,emissiveIntensity:0.08}),
+  crane2: new THREE.MeshLambertMaterial({color:0xdd2222}),
+  rtg:    new THREE.MeshLambertMaterial({color:0xddaa00}),
+  truck:  new THREE.MeshLambertMaterial({color:0x334455}),
+  white:  new THREE.MeshLambertMaterial({color:0xe8ece0}),
+  metal:  new THREE.MeshLambertMaterial({color:0x2a3a4a}),
+  dark:   new THREE.MeshLambertMaterial({color:0x0a0f14}),
+  accent: new THREE.MeshLambertMaterial({color:0x0FA3A3,emissive:0x0FA3A3,emissiveIntensity:0.2}),
+  accentG:new THREE.MeshLambertMaterial({color:0x2dd4d4,emissive:0x2dd4d4,emissiveIntensity:0.3}),
+  road:   new THREE.MeshLambertMaterial({color:0x141e28}),
+  yellow: new THREE.MeshLambertMaterial({color:0xffcc00,emissive:0xffcc00,emissiveIntensity:0.4}),
+  black:  new THREE.MeshLambertMaterial({color:0x0d0d0d}),
+  glass:  new THREE.MeshLambertMaterial({color:0x2dd4d4,transparent:true,opacity:0.3}),
+  sand:   new THREE.MeshLambertMaterial({color:0x1a2810}),
+  lh:     new THREE.MeshLambertMaterial({color:0xddddcc}),
+  red:    new THREE.MeshLambertMaterial({color:0xcc2222}),
+  green:  new THREE.MeshLambertMaterial({color:0x22aa44}),
+  rail:   new THREE.MeshLambertMaterial({color:0x445566}),
+  wh:     new THREE.MeshLambertMaterial({color:0x1a2d3a}),
+};
+// Container material pool
+const CMAT=CONT_COLORS.map(c=>new THREE.MeshLambertMaterial({color:c}));
+
+// ─── HELPERS ───────────────────────────────────────────────────
+function box(w,h,d,mat,x,y,z,ry){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);if(ry)m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;scene.add(m);return m}
+function cyl(rt,rb,h,seg,mat,x,y,z){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m}
+function grp(){const g=new THREE.Group();scene.add(g);return g}
+function grpOf(parent){const g=new THREE.Group();parent.add(g);return g}
+function pt(col,int,x,y,z,dist){const l=new THREE.PointLight(col,int,dist);l.position.set(x,y,z);scene.add(l);return l}
+
+// ─── GROUND ────────────────────────────────────────────────────
+const groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(400,400),M.ground);
+groundMesh.rotation.x=-Math.PI/2;groundMesh.receiveShadow=true;scene.add(groundMesh);
+// Quay apron
+box(160,0.3,60,M.quay,0,0.15,-20);
+// Yard ground
+box(120,0.2,80,M.quay,0,0.1,60);
+// Road grid
+box(160,0.25,6,M.road,0,0.13,22);
+box(160,0.25,6,M.road,0,0.13,36);
+box(6,0.25,80,M.road,-55,0.13,60);
+box(6,0.25,80,M.road,55,0.13,60);
+
+// ─── WATER ─────────────────────────────────────────────────────
+const waterGeo=new THREE.PlaneGeometry(400,100,40,10);
+const waterMesh=new THREE.Mesh(waterGeo,M.water);
+waterMesh.rotation.x=-Math.PI/2;waterMesh.position.set(0,-0.5,-80);scene.add(waterMesh);
+const waterPos=waterGeo.attributes.position;
+const waterOrig=waterPos.array.slice();
+
+// Quay wall
+box(160,4,2,M.metal,0,2,-50);
+
+// ─── SHIPS ─────────────────────────────────────────────────────
+const containerBoxGeo=new THREE.BoxGeometry(3,2,2);// reused
+
+function buildShip(px,pz,mat,name,color2){
+  const g=new THREE.Group();g.position.set(px,0,pz);
+  // Hull
+  const hull=new THREE.Mesh(new THREE.BoxGeometry(60,6,16),mat);
+  hull.position.set(0,2,0);hull.castShadow=true;hull.receiveShadow=true;g.add(hull);
+  // Bow (wedge)
+  const bow=new THREE.Mesh(new THREE.CylinderGeometry(0,8,6,4),mat);
+  bow.position.set(-33,2,0);bow.rotation.y=Math.PI/4;bow.rotation.z=-Math.PI/2;g.add(bow);
+  // Superstructure
+  const sup=new THREE.Mesh(new THREE.BoxGeometry(10,8,14),M.white);
+  sup.position.set(24,8,0);sup.castShadow=true;g.add(sup);
+  const bridge=new THREE.Mesh(new THREE.BoxGeometry(8,4,10),M.glass);
+  bridge.position.set(24,13.5,0);g.add(bridge);
+  // Funnel
+  const funnel=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.5,4,8),color2||M.red);
+  funnel.position.set(24,17,0);g.add(funnel);
+  // Container stacks on deck — 4 rows × 8 columns × 3 high
+  for(let row=0;row<4;row++){
+    for(let col=0;col<8;col++){
+      for(let ht=0;ht<3;ht++){
+        const cm=CMAT[Math.floor(Math.random()*CMAT.length)];
+        const c=new THREE.Mesh(containerBoxGeo,cm);
+        c.position.set(-18+col*5,-0.1+ht*2.1,-4.5+row*3);
+        g.add(c);
+      }
+    }
+  }
+  // Cranes attached (STS) — yellow gantry above
+  g.userData={type:'ship',name,moves:0,teu:Math.floor(8000+Math.random()*6000),containers:0};
+  scene.add(g);return g;
+}
+const ship1=buildShip(-15,-60,M.ship1,'EVER GRACE',M.red);
+const ship2=buildShip(35,-60,M.ship2,'MAERSK ELBE',M.crane2);
+
+// ─── SHIP-TO-SHORE (STS) CRANES ────────────────────────────────
+function buildSTS(px,pz,name){
+  const g=new THREE.Group();g.position.set(px,0,pz);
+  // Legs (4 rail legs)
+  for(let lx=0;lx<2;lx++)for(let lz=0;lz<2;lz++){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(1.2,24,1.2),M.crane);
+    leg.position.set(-3+lx*6,12,-4+lz*8);leg.castShadow=true;g.add(leg);
+  }
+  // Gantry girder (horizontal beam extending over ship)
+  const girder=new THREE.Mesh(new THREE.BoxGeometry(50,1.5,2),M.crane);
+  girder.position.set(-10,24,0);girder.castShadow=true;g.add(girder);
+  // Back mast
+  const bmast=new THREE.Mesh(new THREE.BoxGeometry(1,20,1),M.crane);
+  bmast.position.set(14,24,0);g.add(bmast);
+  // Machine room
+  const mr=new THREE.Mesh(new THREE.BoxGeometry(10,5,8),M.metal);
+  mr.position.set(10,24,0);mr.castShadow=true;g.add(mr);
+  // Trolley (animated)
+  const trolley=new THREE.Mesh(new THREE.BoxGeometry(3,1.5,3),M.crane2);
+  trolley.position.set(-10,22.5,0);g.add(trolley);
+  // Spreader (hangs below trolley)
+  const spreader=new THREE.Mesh(new THREE.BoxGeometry(3.5,0.4,2.2),M.metal);
+  spreader.position.set(0,-4,0);trolley.add(spreader);
+  // Rope line
+  const ropeGeo=new THREE.CylinderGeometry(0.1,0.1,4,4);
+  const rope=new THREE.Mesh(ropeGeo,M.metal);
+  rope.position.set(0,-2,0);trolley.add(rope);
+  // Floodlights
+  for(let i=0;i<2;i++){
+    const fl=new THREE.Mesh(new THREE.BoxGeometry(1,0.5,0.5),M.yellow);
+    fl.position.set(-15+i*10,22,0);g.add(fl);
+    const fll=new THREE.PointLight(0xffee88,1.2,40);fll.position.set(-15+i*10,21,0);g.add(fll);
+  }
+  g.userData={
+    type:'crane',name,trolleyX:-10,trolleyDir:1,
+    phase:'toship',phaseTimer:0,
+    liftedContainer:null,movesCount:0,
+    trolleyObj:trolley,spreaderObj:spreader,
+    ropeLen:4
+  };
+  scene.add(g);return g;
+}
+const sts1=buildSTS(-25,-48,'STS-1');
+const sts2=buildSTS(-5,-48,'STS-2');
+const sts3=buildSTS(20,-48,'STS-3');
+const sts4=buildSTS(40,-48,'STS-4');
+const cranes=[sts1,sts2,sts3,sts4];
+
+// Container lifted by crane (visual only)
+function spawnLiftedContainer(x,y,z){
+  const cm=CMAT[Math.floor(Math.random()*CMAT.length)];
+  const c=new THREE.Mesh(containerBoxGeo,cm);
+  c.position.set(x,y,z);scene.add(c);return c;
+}
+
+// ─── CONTAINER YARD ────────────────────────────────────────────
+const yardContainers=[];
+const yardCols=14;const yardRows=4;const yardHeight=4;
+for(let col=0;col<yardCols;col++){
+  for(let row=0;row<yardRows;row++){
+    const stackH=Math.floor(1+Math.random()*yardHeight);
+    for(let h=0;h<stackH;h++){
+      const cm=CMAT[Math.floor(Math.random()*CMAT.length)];
+      const c=new THREE.Mesh(containerBoxGeo,cm);
+      c.position.set(-33+col*5,1+h*2.1,30+row*7);
+      c.castShadow=true;c.receiveShadow=true;
+      c.userData={col,row,h,type:'container',name:`BWCU${Math.floor(Math.random()*9000000+1000000)}-${col}`};
+      scene.add(c);yardContainers.push(c);
+    }
+  }
+}
+
+// ─── RTG CRANES (rubber-tyred gantry) ──────────────────────────
+function buildRTG(px,pz){
+  const g=new THREE.Group();g.position.set(px,0,pz);
+  for(let lx=0;lx<2;lx++)for(let lz=0;lz<2;lz++){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.8,12,0.8),M.rtg);
+    leg.position.set(-6+lx*12,6,-7+lz*14);g.add(leg);
+  }
+  const beam=new THREE.Mesh(new THREE.BoxGeometry(16,1,1),M.rtg);
+  beam.position.set(0,12,0);g.add(beam);
+  const tbar=new THREE.Mesh(new THREE.BoxGeometry(1,1,14),M.rtg);
+  tbar.position.set(0,12,0);g.add(tbar);
+  // Trolley
+  const trol=new THREE.Mesh(new THREE.BoxGeometry(2,1,2),M.metal);
+  trol.position.set(0,11,0);g.add(trol);
+  // Wheels
+  for(let i=0;i<4;i++){
+    const wx=i<2?-7:7;const wz=i%2===0?-7:7;
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.5,8),M.black);
+    w.rotation.x=Math.PI/2;w.position.set(wx,0.8,wz);g.add(w);
+  }
+  g.userData={type:'rtg',name:`RTG-${Math.floor(Math.random()*10+1)}`,trolley:trol,
+    tX:0,tDir:1,phaseTimer:0};
+  scene.add(g);return g;
+}
+const rtg1=buildRTG(-15,42);
+const rtg2=buildRTG(10,42);
+const rtg3=buildRTG(30,42);
+const rtgs=[rtg1,rtg2,rtg3];
+
+// ─── TERMINAL TRUCKS ───────────────────────────────────────────
+const trucks=[];
+const truckRoutes=[
+  [{x:-25,z:-44},{x:-25,z:0},{x:-25,z:28},{x:-25,z:0}],
+  [{x:-5,z:-44},{x:-5,z:0},{x:-5,z:28},{x:-5,z:0}],
+  [{x:20,z:-44},{x:20,z:0},{x:20,z:28},{x:20,z:0}],
+  [{x:40,z:-44},{x:40,z:0},{x:40,z:28},{x:40,z:0}],
+  [{x:55,z:20},{x:55,z:60},{x:-55,z:60},{x:-55,z:20},{x:55,z:20}],
+  [{x:-55,z:36},{x:55,z:36},{x:55,z:28},{x:-55,z:28}],
+];
+function buildTruck(routeIdx){
+  const g=new THREE.Group();
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(4,3,3),M.truck);cab.position.set(0,2,0);cab.castShadow=true;g.add(cab);
+  const trailer=new THREE.Mesh(new THREE.BoxGeometry(8,2,3),M.metal);trailer.position.set(-5,1.5,0);g.add(trailer);
+  for(let i=0;i<4;i++){
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,0.4,8),M.black);
+    w.rotation.z=Math.PI/2;w.position.set(i<2?-1:1,0.8,i%2===0?-1.5:1.5);g.add(w);
+  }
+  const route=truckRoutes[routeIdx%truckRoutes.length];
+  g.position.set(route[0].x,0,route[0].z);
+  g.userData={type:'vehicle',name:`TT-${routeIdx+1}`,route,routeIdx:1,speed:7,hasCont:false,
+    contMesh:null};
+  scene.add(g);return g;
+}
+for(let i=0;i<6;i++)trucks.push(buildTruck(i));
+
+// ─── GATE COMPLEX ──────────────────────────────────────────────
+const gateG=new THREE.Group();gateG.position.set(0,0,110);
+// Gate booths (4)
+for(let i=0;i<4;i++){
+  const booth=new THREE.Mesh(new THREE.BoxGeometry(4,5,4),M.white);
+  booth.position.set(-15+i*10,2.5,0);booth.castShadow=true;gateG.add(booth);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(5,0.5,5),M.accent);
+  roof.position.set(-15+i*10,5.3,0);gateG.add(roof);
+  // Barrier arm
+  const barrier=new THREE.Mesh(new THREE.BoxGeometry(8,0.4,0.4),M.red);
+  barrier.position.set(-11+i*10,4.5,-3);barrier.rotation.y=0;gateG.add(barrier);
+  barrier.userData={idx:i};
+}
+// Gate overhead sign
+const sign=new THREE.Mesh(new THREE.BoxGeometry(42,2,0.5),M.accent);
+sign.position.set(0,7,0);gateG.add(sign);
+scene.add(gateG);
+
+// Gate trucks queue
+const gateTrucks=[];
+for(let i=0;i<5;i++){
+  const gt=new THREE.Group();
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(4,3,3),M.truck);cab.position.set(0,2,0);cab.castShadow=true;gt.add(cab);
+  const cm=CMAT[Math.floor(Math.random()*CMAT.length)];
+  const cargo=new THREE.Mesh(containerBoxGeo,cm);cargo.position.set(-3,3.1,0);gt.add(cargo);
+  gt.position.set(-10+i*6,0,100+i*10);
+  gt.userData={speed:5,targetZ:100+i*10,type:'vehicle',name:`GATE-${i+1}`};
+  scene.add(gt);gateTrucks.push(gt);
+}
+
+// ─── RAIL SIDING ───────────────────────────────────────────────
+// Rail tracks
+for(let r=0;r<2;r++){
+  box(100,0.3,0.4,M.rail,-10,0.2,88+r*2);
+}
+// Sleepers
+for(let s=0;s<16;s++){
+  box(5,0.3,0.3,M.metal,-50+s*7,0.15,89);
+}
+// Container train (locomotive + wagons)
+const trainG=new THREE.Group();trainG.position.set(-50,0,89);
+// Loco
+const loco=new THREE.Mesh(new THREE.BoxGeometry(10,5,4),M.accent);
+loco.position.set(0,3.5,0);loco.castShadow=true;trainG.add(loco);
+const locoRoof=new THREE.Mesh(new THREE.BoxGeometry(8,2,4),M.metal);
+locoRoof.position.set(0,7,0);trainG.add(locoRoof);
+const locoLight=new THREE.PointLight(0xffffff,2,30);locoLight.position.set(5,4,0);trainG.add(locoLight);
+// Wagons with containers
+for(let w=0;w<6;w++){
+  const wagon=new THREE.Mesh(new THREE.BoxGeometry(10,1,4),M.metal);
+  wagon.position.set(-14-w*12,1.5,0);trainG.add(wagon);
+  for(let h=0;h<2;h++){
+    const cm=CMAT[Math.floor(Math.random()*CMAT.length)];
+    const c=new THREE.Mesh(containerBoxGeo,cm);
+    c.position.set(-14-w*12,2.6+h*2.1,0);c.castShadow=true;trainG.add(c);
+  }
+  // Wagon wheels
+  for(let wx=0;wx<2;wx++){
+    const wh=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,0.5,8),M.black);
+    wh.rotation.x=Math.PI/2;wh.position.set(-11-w*12,0.8,wx===0?-2.5:2.5);trainG.add(wh);
+  }
+}
+scene.add(trainG);
+// Animate train slowly
+let trainX=-50;const trainSpeed=2;
+
+// ─── WAREHOUSES ────────────────────────────────────────────────
+for(let i=0;i<3;i++){
+  const wh=new THREE.Mesh(new THREE.BoxGeometry(28,10,16),M.wh);
+  wh.position.set(-55+i*0,5,80);wh.castShadow=true;wh.receiveShadow=true;
+  if(i===0)wh.position.set(-62,5,75);
+  else if(i===1)wh.position.set(-62,5,100);
+  else wh.position.set(62,5,80);
+  scene.add(wh);
+  const whRoof=new THREE.Mesh(new THREE.BoxGeometry(29,1,17),M.metal);
+  whRoof.position.copy(wh.position);whRoof.position.y+=5.5;scene.add(whRoof);
+  const whAccent=new THREE.Mesh(new THREE.BoxGeometry(28,2,0.3),M.accent);
+  whAccent.position.copy(wh.position);whAccent.position.z+=8.2;whAccent.position.y+=2;scene.add(whAccent);
+}
+
+// ─── LIGHTHOUSE ────────────────────────────────────────────────
+cyl(1.2,2,16,8,M.lh,-72,8,-55);
+cyl(1.6,1.6,1.2,8,M.red,-72,16.6,-55);
+const lhLight=pt(0xffffff,4,0,-72,16,-55);// will add properly below
+const lhGlow=new THREE.PointLight(0xffffff,4,100);
+lhGlow.position.set(-72,17,-55);scene.add(lhGlow);
+// Red stripe
+cyl(1.25,1.25,2,8,M.red,-72,5,-55);
+cyl(1.25,1.25,2,8,M.red,-72,11,-55);
+
+// ─── HARBOUR TUGS ──────────────────────────────────────────────
+const tug1G=new THREE.Group();
+const tugHull=new THREE.Mesh(new THREE.BoxGeometry(14,4,7),M.accent);
+tugHull.position.set(0,1.5,0);tugHull.castShadow=true;tug1G.add(tugHull);
+const tugCabin=new THREE.Mesh(new THREE.BoxGeometry(5,4,5),M.white);
+tugCabin.position.set(-2,5,0);tug1G.add(tugCabin);
+const tugFunnel=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.8,2.5,6),M.accent);
+tugFunnel.position.set(-2,8,0);tug1G.add(tugFunnel);
+tug1G.position.set(-55,-1,-70);tug1G.userData={speed:0.03,dir:1,name:'TUG ENDEAVOUR',type:'vehicle'};
+scene.add(tug1G);
+
+// ─── STARS ─────────────────────────────────────────────────────
+const starGeo=new THREE.BufferGeometry();
+const sv=[];for(let s=0;s<2000;s++){sv.push((Math.random()-.5)*500,80+Math.random()*200,(Math.random()-.5)*500);}
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(sv,3));
+const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:0.5}));
+scene.add(stars);stars.visible=false;
+
+// ─── LIGHTING ──────────────────────────────────────────────────
+const ambient=new THREE.AmbientLight(0x1a2f3a,2.8);scene.add(ambient);
+const sun=new THREE.DirectionalLight(0xfff0cc,2.5);
+sun.position.set(80,120,60);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-130;sun.shadow.camera.right=130;
+sun.shadow.camera.top=130;sun.shadow.camera.bottom=-130;
+scene.add(sun);
+const fill=new THREE.DirectionalLight(0x2a5080,0.6);fill.position.set(-80,40,80);scene.add(fill);
+// Quay floods
+[-40,-20,0,20,40].forEach(x=>pt(0xfff0cc,1.5,x,25,-52,60));
+
+// ─── CRANE CYCLE STATE ─────────────────────────────────────────
+// Each STS crane: trolley shuttles ship→shore, picks/drops containers
+let totalMoves=0;
+let movesPerHour=0;
+let movesThisMinute=0;
+let minuteTimer=0;
+
+// ─── WAVE ANIMATION DATA ───────────────────────────────────────
+let frameCount=0;let lastTime=0;let domTimer=0;let clockTimer=0;
+let currentWeather='clear';let isNight=false;
+
+// ─── RAIN ──────────────────────────────────────────────────────
+const rainCanvas=document.getElementById('rain-canvas');
+const rainCtx=rainCanvas.getContext('2d');let rainDrops=[];
+function initRain(){
+  rainCanvas.width=window.innerWidth;rainCanvas.height=window.innerHeight;rainDrops=[];
+  for(let r=0;r<500;r++)rainDrops.push({x:Math.random()*rainCanvas.width,y:Math.random()*rainCanvas.height,len:12+Math.random()*20,speed:7+Math.random()*7,alpha:0.3+Math.random()*0.4});
+}
+function drawRain(){
+  rainCanvas.style.display='block';
+  rainCtx.clearRect(0,0,rainCanvas.width,rainCanvas.height);
+  rainCtx.strokeStyle='rgba(160,210,240,0.35)';rainCtx.lineWidth=1;
+  rainDrops.forEach(d=>{
+    rainCtx.beginPath();rainCtx.moveTo(d.x,d.y);rainCtx.lineTo(d.x+2,d.y+d.len);rainCtx.stroke();
+    d.y+=d.speed;d.x+=1.5;
+    if(d.y>rainCanvas.height){d.y=-20;d.x=Math.random()*rainCanvas.width;}
+  });
+}
+
+// ─── SELECTION ─────────────────────────────────────────────────
+const raycaster=new THREE.Raycaster();const mouse=new THREE.Vector2();
+let selectedObj=null;let lastDrag=0;
+renderer.domElement.addEventListener('click',e=>{
+  if(Date.now()-lastDrag<200)return;
+  mouse.x=(e.clientX/window.innerWidth)*2-1;
+  mouse.y=-(e.clientY/window.innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(scene.children,true);
+  if(hits.length){
+    let o=hits[0].object;while(o.parent&&!o.userData.type)o=o.parent;
+    if(o.userData.type)selectObj(o);
+  }
+});
+renderer.domElement.addEventListener('mouseup',()=>lastDrag=Date.now());
+renderer.domElement.addEventListener('touchend',()=>lastDrag=Date.now());
+
+function selectObj(o){
+  selectedObj=o;
+  document.getElementById('d-name').textContent=o.userData.name||'Unknown';
+  document.getElementById('d-status').textContent='Active';
+  const t=o.userData.type;
+  if(t==='ship'){
+    document.getElementById('d-containers').textContent=o.userData.teu+' TEU';
+    document.getElementById('d-moves').textContent=o.userData.moves||0;
+    document.getElementById('d-weight').textContent=Math.floor(o.userData.teu*12.4/1000)+'k t';
+    document.getElementById('d-eta').textContent='Sailed '+((Math.random()*6+2)|0)+'h';
+  } else if(t==='crane'){
+    document.getElementById('d-containers').textContent=o.userData.movesCount||0;
+    document.getElementById('d-moves').textContent=(o.userData.movesCount||0)+' moves';
+    document.getElementById('d-weight').textContent='28t avg';
+    document.getElementById('d-eta').textContent='—';
+  } else {
+    document.getElementById('d-containers').textContent='—';
+    document.getElementById('d-moves').textContent='—';
+    document.getElementById('d-weight').textContent='—';
+    document.getElementById('d-eta').textContent='—';
+  }
+  _v3.setFromMatrixPosition(o.matrixWorld);
+  controls.target.lerp(_v3,0.4);
+  camera.position.set(_v3.x+30,_v3.y+25,_v3.z+40);
+}
+
+// ─── FLY TO AREA ───────────────────────────────────────────────
+const areas={
+  berths:{p:[0,50,30],l:[0,0,-55]},
+  yard:{p:[0,55,100],l:[0,2,55]},
+  gate:{p:[0,45,150],l:[0,2,110]},
+  rail:{p:[-10,40,120],l:[-10,2,89]},
+};
+let flyTgt=null;let flyLook=null;
+function flyToArea(a){
+  document.querySelectorAll('.area-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.area-btn,.mnb').forEach(b=>{if(b.onclick&&b.onclick.toString().includes("'"+a+"'"))b.classList.add('active')});
+  const t=areas[a];if(!t)return;
+  flyTgt=new THREE.Vector3(...t.p);flyLook=new THREE.Vector3(...t.l);
+}
+
+// ─── WEATHER ───────────────────────────────────────────────────
+function setWeather(w){
+  currentWeather=w;
+  document.querySelectorAll('.weather-opt').forEach(o=>o.classList.toggle('active',o.textContent.toLowerCase().includes(w.substring(0,4))));
+  const labels={clear:'☀️ Clear',monsoon:'⛈️ Monsoon',fog:'🌫️ Fog',storm:'🌊 Storm'};
+  document.getElementById('weather-btn').textContent=(labels[w]||w)+' ▾';
+  document.getElementById('weather-menu').classList.remove('open');
+  if(w==='clear'){scene.fog=new THREE.Fog(0x08141e,180,350);ambient.intensity=isNight?0.9:2.8;sun.intensity=isNight?0.1:2.5;rainCanvas.style.display='none';}
+  else if(w==='monsoon'){scene.fog=new THREE.FogExp2(0x060e14,0.007);ambient.intensity=1.0;sun.intensity=0.4;initRain();}
+  else if(w==='fog'){scene.fog=new THREE.Fog(0x0d1e28,30,110);ambient.intensity=0.7;sun.intensity=0.15;rainCanvas.style.display='none';}
+  else if(w==='storm'){scene.fog=new THREE.FogExp2(0x05090f,0.009);ambient.intensity=0.8;sun.intensity=0.3;initRain();}
+  notify('Weather: '+w.charAt(0).toUpperCase()+w.slice(1));
+}
+function toggleWeatherMenu(){document.getElementById('weather-menu').classList.toggle('open')}
+
+function toggleDayNight(){
+  isNight=!isNight;
+  document.getElementById('daynight-btn').textContent=isNight?'☀️':'🌙';
+  if(isNight){scene.background=new THREE.Color(0x020810);ambient.intensity=0.5;sun.intensity=0.05;stars.visible=true;M.water.color.set(0x040c18);}
+  else{scene.background=new THREE.Color(0x08141e);if(currentWeather==='clear'){ambient.intensity=2.8;sun.intensity=2.5;}stars.visible=false;M.water.color.set(0x0a3850);}
+}
+
+// ─── TABLE DATA ────────────────────────────────────────────────
+let currentTab='berths';
+const tableData={
+  berths:[
+    ['EVER GRACE','CSCL','14350 TEU','Discharging'],
+    ['MAERSK ELBE','Maersk','12500 TEU','Loading'],
+    ['BERTH 3','—','Available','Idle'],
+    ['BERTH 4','—','Scheduled','Prep'],
+  ],
+  equipment:[
+    ['STS-1','Ship-Shore','Active','Crane 1'],
+    ['STS-2','Ship-Shore','Active','Crane 2'],
+    ['STS-3','Ship-Shore','Active','Crane 3'],
+    ['STS-4','Ship-Shore','Active','Crane 4'],
+    ['RTG-1','Rubber Tyre','Active','Yard A'],
+    ['RTG-2','Rubber Tyre','Active','Yard B'],
+    ['RTG-3','Rubber Tyre','Active','Yard C'],
+  ],
+  containers:[
+    ['BWCU 4382917','40HC','28.4 t','Yard A-04'],
+    ['BWCU 2819304','20GP','18.2 t','Yard B-11'],
+    ['BWCU 9173820','40RF','22.0 t','Reefer'],
+    ['BWCU 3827410','20OT','30.5 t','Yard C-02'],
+    ['BWCU 5503918','40HC','26.1 t','On ship'],
+    ['BWCU 1192837','40HC','19.8 t','Yard A-09'],
+  ],
+};
+const tableHeaders={
+  berths:['Vessel','Operator','Capacity','Status'],
+  equipment:['Unit','Type','Status','Location'],
+  containers:['ISO Number','Size','Weight','Position'],
+};
+function renderTable(){
+  const body=document.getElementById('table-body');
+  const headers=tableHeaders[currentTab];const rows=tableData[currentTab];
+  const badgeMap={Active:'go',Idle:'hold',Discharging:'go',Loading:'warn',Prep:'warn',Scheduled:'warn',Available:'ok',Reefer:'go','On ship':'warn'};
+  let html=`<div class="tr-row tr-head">${headers.map(h=>`<span>${h}</span>`).join('')}</div>`;
+  rows.forEach(r=>{
+    const bc=badgeMap[r[3]]||'hold';
+    html+=`<div class="tr-row">${r.map((c,i)=>i===3?`<span class="badge ${bc}">${c}</span>`:`<span>${c}</span>`).join('')}</div>`;
+  });
+  body.innerHTML=html;
+}
+renderTable();
+
+// ─── NOTIFICATIONS ─────────────────────────────────────────────
+function notify(msg){
+  const el=document.getElementById('notif');el.textContent=msg;el.style.opacity=1;
+  setTimeout(()=>el.style.opacity=0,3200);
+}
+
+// ─── CLOCK ─────────────────────────────────────────────────────
+let simHour=7,simMin=5,simSec=0;
+function tickClock(dt){
+  simSec+=dt;if(simSec>=60){simSec-=60;simMin++;}
+  if(simMin>=60){simMin-=60;simHour=(simHour+1)%24;}
+}
+function formatClock(){return String(simHour).padStart(2,'0')+':'+String(simMin).padStart(2,'0')+':'+String(Math.floor(simSec)).padStart(2,'0')}
+
+// ─── LIGHTNING ─────────────────────────────────────────────────
+let lightningT=0;let nextLightning=4+Math.random()*8;
+
+// ─── MAIN LOOP ─────────────────────────────────────────────────
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt=Math.min((now-lastTime)/1000,0.05);lastTime=now;frameCount++;
+
+  controls.update();
+
+  // Fly target
+  if(flyTgt){camera.position.lerp(flyTgt,0.05);controls.target.lerp(flyLook,0.05);if(camera.position.distanceTo(flyTgt)<1)flyTgt=null;}
+
+  // Clock
+  tickClock(dt);
+
+  // Water waves
+  if(frameCount%2===0){
+    const t=now*0.0004;
+    for(let i=0;i<waterPos.count;i++){
+      const ox=waterOrig[i*3];const oz=waterOrig[i*3+2];
+      waterPos.setY(i,Math.sin(ox*0.25+t)*0.5+Math.cos(oz*0.18+t*1.4)*0.4);
+    }
+    waterPos.needsUpdate=true;
+  }
+
+  // Rain / lightning
+  if(currentWeather==='monsoon'||currentWeather==='storm'){
+    drawRain();
+    lightningT+=dt;
+    if(lightningT>nextLightning){
+      lightningT=0;nextLightning=3+Math.random()*8;
+      const ld=document.getElementById('lightning');
+      ld.style.background='rgba(150,220,255,0.3)';
+      setTimeout(()=>ld.style.background='transparent',110);
+      if(currentWeather==='storm')notify('⚠️ Storm wind hold — cranes suspended');
+    }
+  } else {rainCanvas.style.display='none';}
+
+  // Storm swell — rougher water
+  if(currentWeather==='storm'){
+    const t=now*0.0007;
+    for(let i=0;i<waterPos.count;i++){
+      const ox=waterOrig[i*3];const oz=waterOrig[i*3+2];
+      waterPos.setY(i,Math.sin(ox*0.3+t)*1.4+Math.cos(oz*0.22+t*1.6)*1.0);
+    }
+    waterPos.needsUpdate=true;
+  }
+
+  // ── STS CRANE CYCLES ─────────────────────────────────────────
+  cranes.forEach((crane,ci)=>{
+    const d=crane.userData;const tObj=d.trolleyObj;
+    d.phaseTimer+=dt;
+
+    // Trolley moves between x=-20 (over ship) and x=10 (over yard side)
+    if(d.phase==='toship'){
+      d.trolleyX=Math.max(-20,d.trolleyX-8*dt);
+      tObj.position.x=d.trolleyX;
+      if(d.trolleyX<=-19.5){
+        d.phase='lower';d.phaseTimer=0;
+        if(!d.liftedContainer){d.liftedContainer=spawnLiftedContainer(crane.position.x+d.trolleyX,2,crane.position.z);}
+      }
+    } else if(d.phase==='lower'){
+      // Lower spreader
+      if(d.phaseTimer<1.5){tObj.position.y=Math.max(10,22.5-d.phaseTimer*8);}
+      else {d.phase='pickup';d.phaseTimer=0;}
+    } else if(d.phase==='pickup'){
+      if(d.phaseTimer<0.5){// grab
+      } else {d.phase='raise';d.phaseTimer=0;}
+    } else if(d.phase==='raise'){
+      if(d.phaseTimer<1.5){tObj.position.y=Math.min(22.5,10+d.phaseTimer*8);}
+      else {d.phase='toyard';}
+    } else if(d.phase==='toyard'){
+      d.trolleyX=Math.min(10,d.trolleyX+8*dt);
+      tObj.position.x=d.trolleyX;
+      if(d.liftedContainer){
+        d.liftedContainer.position.x=crane.position.x+d.trolleyX;
+        d.liftedContainer.position.y=tObj.position.y-3;
+        d.liftedContainer.position.z=crane.position.z;
+      }
+      if(d.trolleyX>=9.5){d.phase='setdown';d.phaseTimer=0;}
+    } else if(d.phase==='setdown'){
+      if(d.phaseTimer<1.5){tObj.position.y=Math.max(10,22.5-d.phaseTimer*8);}
+      else {
+        // Container lands on truck or ground
+        if(d.liftedContainer){scene.remove(d.liftedContainer);d.liftedContainer=null;}
+        d.phase='toship';d.movesCount++;totalMoves++;movesThisMinute++;
+        d.phaseTimer=0;
+      }
+    }
+  });
+
+  // ── RTG CRANES ───────────────────────────────────────────────
+  rtgs.forEach(r=>{
+    const d=r.userData;const tObj=d.trolley;
+    d.tX+=d.tDir*4*dt;
+    if(d.tX>7){d.tX=7;d.tDir=-1;}
+    if(d.tX<-7){d.tX=-7;d.tDir=1;}
+    tObj.position.x=d.tX;
+    // RTG also wanders slowly in X
+    r.position.x+=Math.sin(lastTime*0.0003+rtgs.indexOf(r)*2)*0.01;
+  });
+
+  // ── TERMINAL TRUCKS ──────────────────────────────────────────
+  trucks.forEach(t=>{
+    const d=t.userData;const route=d.route;const ri=d.routeIdx;
+    const tgt=route[ri];
+    const dx=tgt.x-t.position.x;const dz=tgt.z-t.position.z;
+    const dist=Math.sqrt(dx*dx+dz*dz);
+    if(dist<1){d.routeIdx=(ri+1)%route.length;}
+    else{const sp=d.speed*dt/dist;t.position.x+=dx*sp;t.position.z+=dz*sp;t.rotation.y=Math.atan2(dx,dz);}
+  });
+
+  // ── TUG PATROL ───────────────────────────────────────────────
+  tug1G.position.x+=tug1G.userData.dir*2*dt;
+  if(tug1G.position.x>60){tug1G.userData.dir=-1;tug1G.rotation.y=Math.PI;}
+  if(tug1G.position.x<-60){tug1G.userData.dir=1;tug1G.rotation.y=0;}
+
+  // ── GATE TRUCKS ──────────────────────────────────────────────
+  gateTrucks.forEach((gt,i)=>{
+    if(gt.position.z>115){gt.position.z-=dt*5;}
+    else if(gt.position.z<101){gt.position.z=100+i*10;}
+  });
+
+  // ── TRAIN ────────────────────────────────────────────────────
+  trainX+=trainSpeed*dt;
+  if(trainX>80)trainX=-80;
+  trainG.position.x=trainX;
+
+  // ── LIGHTHOUSE ROTATE ────────────────────────────────────────
+  lhGlow.position.x=-72+Math.cos(now*0.001)*3;
+
+  // Moves/hour
+  minuteTimer+=dt;
+  if(minuteTimer>=60){minuteTimer=0;movesPerHour=movesThisMinute*60;movesThisMinute=0;}
+
+  // ── DOM updates (500ms throttle) ─────────────────────────────
+  domTimer+=dt;
+  if(domTimer>=0.5){
+    domTimer=0;
+    document.getElementById('clock-box').textContent=formatClock();
+    document.getElementById('kpi-mph').innerHTML=Math.min(99,Math.floor(totalMoves*0.3+32))+'<span class="kpi-delta">↑</span>';
+    document.getElementById('kpi-util').innerHTML=(72+Math.sin(now*0.0001)*3).toFixed(0)+'<span style="font-size:14px">%</span>';
+    document.getElementById('kpi-teu').textContent=(48220+totalMoves*2)+' TEU stored';
+    // EP stats
+    const ep_c=document.getElementById('ep-cranes');if(ep_c)ep_c.textContent=cranes.length;
+    const ep_t=document.getElementById('ep-trucks');if(ep_t)ep_t.textContent=trucks.length+gateTrucks.length;
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ─── RESIZE ────────────────────────────────────────────────────
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  if(currentWeather==='monsoon'||currentWeather==='storm')initRain();
+});
+
+// ─── SEARCH ────────────────────────────────────────────────────
+document.getElementById('search-box').addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const q=e.target.value.toLowerCase();
+  if(q.includes('berth')||q.includes('ship')||q.includes('vessel'))flyToArea('berths');
+  else if(q.includes('yard')||q.includes('rtg')||q.includes('container'))flyToArea('yard');
+  else if(q.includes('gate'))flyToArea('gate');
+  else if(q.includes('rail')||q.includes('train'))flyToArea('rail');
+  else if(q.includes('crane')||q.includes('sts'))flyToArea('berths');
+  e.target.value='';
+});
+
+// ─── MOBILE BOTTOM SHEET ───────────────────────────────────────
+let sheetOpen=false;let currentSheetTab='tracker';
+function toggleSheet(){
+  sheetOpen=!sheetOpen;
+  document.getElementById('bottom-sheet').classList.toggle('expanded',sheetOpen);
+  document.getElementById('sheet-arrow').textContent=sheetOpen?'▼':'▲';
+  if(sheetOpen)renderSheetContent();
+}
+function showSheetTab(tab){
+  currentSheetTab=tab;
+  document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().startsWith(tab.substring(0,4))));
+  renderSheetContent();
+  if(!sheetOpen)toggleSheet();
+}
+function renderSheetContent(){
+  const el=document.getElementById('sheet-body');if(!el)return;
+  if(currentSheetTab==='tracker'){
+    const steps=['Arrived','Berthed','Discharging','Loading','Lashing','Sailed'];
+    const times=['06:14','06:38','07:05','10:30','14:00','15:20'];
+    const doneIdx=2;
+    el.innerHTML=steps.map((s,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid rgba(15,163,163,0.1);font-size:12px">
+        <span style="font-size:16px">${i<doneIdx?'✅':i===doneIdx?'🔵':'⚪'}</span>
+        <span style="flex:1;color:var(--text)">${s}</span>
+        <span style="color:var(--text2);font-variant-numeric:tabular-nums">${times[i]}</span>
+      </div>`).join('');
+  } else if(currentSheetTab==='telemetry'){
+    const stats=[
+      ['Moves / hr',Math.min(99,Math.floor(totalMoves*0.3+32)),''],
+      ['Yard util',(72+Math.sin(Date.now()*0.0001)*3).toFixed(0)+'%',''],
+      ['Vessels','2 / 4','berths'],
+      ['Cranes active','4','of 4'],
+      ['Trucks in yard',trucks.length,''],
+      ['Train wagons','6','loaded'],
+      ['Gate q-time','4.2 min','avg'],
+      ['Wind','12 kn','SW'],
+    ];
+    el.innerHTML=`<div style="padding:10px 6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${stats.map(([k,v,u])=>`<div style="background:rgba(15,163,163,0.08);border:1px solid var(--panel-border);border-radius:10px;padding:10px 12px">
+        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${k}</div>
+        <div style="font-size:17px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums">${v}</div>
+        ${u?`<div style="font-size:9px;color:var(--text2)">${u}</div>`:''}
+      </div>`).join('')}
+    </div>`;
+  } else {
+    const tData=tableData[currentSheetTab]||tableData.berths;
+    const badgeMap={Active:'go',Idle:'hold',Discharging:'go',Loading:'warn',Prep:'warn',Scheduled:'warn',Available:'ok'};
+    el.innerHTML=`<div style="padding:4px 4px">
+      ${tData.map(r=>{const bc=badgeMap[r[3]]||'hold';return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid rgba(15,163,163,0.08);font-size:11px">
+        <div>
+          <div style="color:var(--text);font-weight:600">${r[0]}</div>
+          <div style="color:var(--text2);font-size:10px;margin-top:2px">${r[1]} · ${r[2]}</div>
+        </div>
+        <span class="badge ${bc}">${r[3]}</span>
+      </div>`;}).join('')}
+    </div>`;
+  }
+}
+setInterval(()=>{if(sheetOpen&&currentSheetTab==='telemetry')renderSheetContent();},1000);
+
+// ─── TAB + AREA HELPERS ────────────────────────────────────────
+function showTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase()===tab));
+  renderTable();
+}
+function mobNav(el,area){
+  document.querySelectorAll('.mnb').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');flyToArea(area);
+}
+
+// expose globals
+window.flyToArea=flyToArea;window.setWeather=setWeather;
+window.toggleWeatherMenu=toggleWeatherMenu;window.toggleDayNight=toggleDayNight;
+window.showTab=showTab;window.toggleSheet=toggleSheet;
+window.showSheetTab=showSheetTab;window.mobNav=mobNav;
+
+notify('🚢 Berthwise — Constellation Port live');
+requestAnimationFrame(animate);
+}// end initApp
+</script>
+</body>
+</html>
