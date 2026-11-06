@@ -185,8 +185,9 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:
   /* Show mobile UI */
   #mob-nav{display:flex}
   #bottom-sheet{display:block}
-  canvas{height:calc(100% - 56px)!important}
-  #notif{bottom:70px;top:auto}
+  /* Canvas clears nav(56px) + visible tab strip(48px) */
+  canvas{height:calc(100% - 104px)!important}
+  #notif{bottom:112px;top:auto}
 }
 @media(max-width:380px){
   .kpi{flex:0 0 110px;min-width:110px}
@@ -194,22 +195,52 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:
 }
 
 /* ═══ BOTTOM SHEET (mobile) ═════════════════════════════════════ */
+/* Bottom sheet sits ABOVE the bottom nav (bottom:56px) so tabs always visible */
 #bottom-sheet{
-  display:none;position:fixed;bottom:0;left:0;right:0;
+  display:none;position:fixed;
+  bottom:56px;/* above nav */
+  left:0;right:0;
   background:rgba(6,17,26,0.97);backdrop-filter:var(--glass-blur);
-  border-top:1px solid var(--panel-border);border-radius:20px 20px 0 0;
-  z-index:150;transition:transform .35s cubic-bezier(.4,0,.2,1);
-  transform:translateY(calc(100% - 56px));max-height:80vh;overflow:hidden
+  border-top:1px solid var(--panel-border);
+  border-radius:16px 16px 0 0;
+  z-index:150;
+  transition:transform .35s cubic-bezier(.4,0,.2,1);
+  /* collapsed: only tab row (48px) peeks above nav */
+  transform:translateY(calc(100% - 48px));
+  max-height:calc(80vh - 56px);
+  overflow:hidden;
 }
 #bottom-sheet.expanded{transform:translateY(0)}
-#sheet-handle{display:flex;align-items:center;justify-content:center;padding:10px 16px 6px;cursor:pointer;user-select:none;position:relative;min-height:36px}
-#sheet-pill{width:36px;height:4px;border-radius:2px;background:rgba(15,163,163,0.4)}
-#sheet-label{position:absolute;left:16px;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
-#sheet-arrow{position:absolute;right:16px;font-size:12px;color:var(--text2)}
-#sheet-tabs{display:flex;border-bottom:1px solid var(--panel-border)}
-.stab{flex:1;padding:9px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;color:var(--text2);text-align:center;border:none;background:transparent;min-height:40px;transition:all .2s}
-.stab.active{background:rgba(15,163,163,0.15);color:var(--text)}
-#sheet-body{overflow-y:auto;max-height:calc(80vh - 100px);padding:4px 10px 24px;-webkit-overflow-scrolling:touch}
+/* Handle bar: compact, just pill + arrow */
+#sheet-handle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 14px 4px;cursor:pointer;user-select:none;
+}
+#sheet-pill{width:32px;height:3px;border-radius:2px;background:rgba(15,163,163,0.35);margin:0 auto}
+#sheet-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em}
+#sheet-arrow{font-size:11px;color:var(--text2)}
+/* Tab row is the always-visible strip */
+#sheet-tabs{
+  display:flex;
+  border-bottom:1px solid var(--panel-border);
+  background:rgba(6,17,26,0.6);
+}
+.stab{
+  flex:1;padding:10px 2px;font-size:10px;text-transform:uppercase;
+  letter-spacing:.03em;cursor:pointer;color:var(--text2);text-align:center;
+  border:none;background:transparent;min-height:48px;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+}
+.stab.active{
+  background:rgba(15,163,163,0.18);color:var(--accent2);
+  border-bottom:2px solid var(--accent);
+}
+#sheet-body{
+  overflow-y:auto;
+  max-height:calc(80vh - 56px - 48px);
+  padding:4px 10px 16px;
+  -webkit-overflow-scrolling:touch;
+}
 
 /* ═══ MOBILE BOTTOM NAV ═════════════════════════════════════════ */
 #mob-nav{
@@ -336,9 +367,9 @@ canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%;z-index:
 <!-- MOBILE BOTTOM SHEET -->
 <div id="bottom-sheet">
   <div id="sheet-handle" onclick="toggleSheet()">
-    <span id="sheet-label">Operations</span>
+    <span id="sheet-label">Operations ▲</span>
     <div id="sheet-pill"></div>
-    <span id="sheet-arrow">▲</span>
+    <span id="sheet-arrow"></span>
   </div>
   <div id="sheet-tabs">
     <button class="stab active" onclick="showSheetTab('tracker')">Vessel</button>
@@ -1102,57 +1133,98 @@ let sheetOpen=false;let currentSheetTab='tracker';
 function toggleSheet(){
   sheetOpen=!sheetOpen;
   document.getElementById('bottom-sheet').classList.toggle('expanded',sheetOpen);
-  document.getElementById('sheet-arrow').textContent=sheetOpen?'▼':'▲';
-  if(sheetOpen)renderSheetContent();
+  document.getElementById('sheet-label').textContent=sheetOpen?'Operations ▼':'Operations ▲';
+  if(sheetOpen&&!document.getElementById('sheet-body').innerHTML)renderSheetContent();
 }
 function showSheetTab(tab){
   currentSheetTab=tab;
-  document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().startsWith(tab.substring(0,4))));
+  // Match by onclick attribute value, not text — avoids "Boxes"≠"containers" mismatch
+  document.querySelectorAll('.stab').forEach(b=>{
+    const fn=b.getAttribute('onclick')||'';
+    b.classList.toggle('active',fn.includes("'"+tab+"'"));
+  });
   renderSheetContent();
   if(!sheetOpen)toggleSheet();
 }
 function renderSheetContent(){
   const el=document.getElementById('sheet-body');if(!el)return;
+
   if(currentSheetTab==='tracker'){
-    const steps=['Arrived','Berthed','Discharging','Loading','Lashing','Sailed'];
-    const times=['06:14','06:38','07:05','10:30','14:00','15:20'];
-    const doneIdx=2;
-    el.innerHTML=steps.map((s,i)=>`
-      <div style="display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid rgba(15,163,163,0.1);font-size:12px">
-        <span style="font-size:16px">${i<doneIdx?'✅':i===doneIdx?'🔵':'⚪'}</span>
-        <span style="flex:1;color:var(--text)">${s}</span>
-        <span style="color:var(--text2);font-variant-numeric:tabular-nums">${times[i]}</span>
-      </div>`).join('');
+    // Vessel tracker — same data as desktop #tracker panel
+    const steps=[
+      {name:'Arrived',    time:'06:14', done:true},
+      {name:'Berthed',    time:'06:38', done:true},
+      {name:'Discharging',time:'07:05', done:false, active:true},
+      {name:'Loading',    time:'10:30', done:false},
+      {name:'Lashing',    time:'14:00', done:false},
+      {name:'Sailed',     time:'15:20', done:false},
+    ];
+    el.innerHTML=`
+      <div style="padding:10px 6px 4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Vessel Tracker</span>
+        <span style="font-size:12px;font-weight:700;color:var(--accent2)">EVER GRACE</span>
+      </div>
+      ${steps.map(s=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 10px;border-bottom:1px solid rgba(15,163,163,0.1)">
+          <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;
+            background:${s.done?'#22c55e':s.active?'var(--accent)':'rgba(15,163,163,0.2)'};
+            ${s.active?'box-shadow:0 0 8px var(--accent)':''}"></div>
+          <span style="flex:1;font-size:12px;color:var(--text);font-weight:${s.active?'600':'400'}">${s.name}</span>
+          <span style="font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums">${s.time}</span>
+          <span style="font-size:10px">${s.done?'✅':s.active?'🔵':''}</span>
+        </div>`).join('')}`;
+
   } else if(currentSheetTab==='telemetry'){
     const stats=[
-      ['Moves / hr',Math.min(99,Math.floor(totalMoves*0.3+32)),''],
-      ['Yard util',(72+Math.sin(Date.now()*0.0001)*3).toFixed(0)+'%',''],
-      ['Vessels','2 / 4','berths'],
-      ['Cranes active','4','of 4'],
-      ['Trucks in yard',trucks.length,''],
+      ['Moves / hr', Math.min(99,Math.floor(totalMoves*0.3+32))+'', ''],
+      ['Yard util',  (72+Math.sin(Date.now()*0.0001)*3).toFixed(0)+'%',''],
+      ['Vessels',    '2 / 4','berths'],
+      ['Cranes',     '4','active'],
+      ['Trucks',     trucks.length+'','in yard'],
       ['Train wagons','6','loaded'],
       ['Gate q-time','4.2 min','avg'],
-      ['Wind','12 kn','SW'],
+      ['Wind',       '12 kn','SW'],
     ];
-    el.innerHTML=`<div style="padding:10px 6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      ${stats.map(([k,v,u])=>`<div style="background:rgba(15,163,163,0.08);border:1px solid var(--panel-border);border-radius:10px;padding:10px 12px">
-        <div style="font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${k}</div>
-        <div style="font-size:17px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums">${v}</div>
-        ${u?`<div style="font-size:9px;color:var(--text2)">${u}</div>`:''}
-      </div>`).join('')}
+    el.innerHTML=`<div style="padding:10px 4px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${stats.map(([k,v,u])=>`
+        <div style="background:rgba(15,163,163,0.08);border:1px solid var(--panel-border);border-radius:10px;padding:11px 12px">
+          <div style="font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${k}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums">${v}</div>
+          ${u?`<div style="font-size:9px;color:var(--text2);margin-top:2px">${u}</div>`:''}
+        </div>`).join('')}
     </div>`;
+
   } else {
+    // Table tabs: berths / equipment / containers
+    const hdrMap={
+      berths:    ['Vessel','Operator','Capacity','Status'],
+      equipment: ['Unit','Type','Status','Location'],
+      containers:['ISO Number','Size','Weight','Position'],
+    };
     const tData=tableData[currentSheetTab]||tableData.berths;
-    const hdrMap={berths:['Vessel','Operator','Capacity','Status'],equipment:['Unit','Type','Status','Location'],containers:['ISO Number','Size','Weight','Position']};
     const hdr=hdrMap[currentSheetTab]||hdrMap.berths;
-    const badgeMap={Active:'go',Idle:'hold',Discharging:'go',Loading:'warn',Prep:'warn',Scheduled:'warn',Available:'ok',Reefer:'go','On ship':'warn'};
-    let html=`<div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.8fr;gap:5px;padding:7px 6px 4px;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;border-bottom:1px solid var(--panel-border)">
-      ${hdr.map(h=>`<span>${h}</span>`).join('')}</div>`;
+    const badgeMap={Active:'go',Idle:'hold',Discharging:'go',Loading:'warn',
+                    Prep:'warn',Scheduled:'warn',Available:'ok',
+                    Reefer:'go','On ship':'warn'};
+    let html=`
+      <div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.9fr;
+                  gap:4px;padding:8px 6px 4px;border-bottom:1px solid var(--panel-border);
+                  font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:600">
+        ${hdr.map(h=>`<span>${h}</span>`).join('')}
+      </div>`;
     tData.forEach(r=>{
       const bc=badgeMap[r[3]]||'hold';
-      html+=`<div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.8fr;gap:5px;padding:9px 6px;border-bottom:1px solid rgba(15,163,163,0.07);font-size:10px;align-items:center;cursor:pointer" onclick="">
-        ${r.map((c,i)=>i===3?`<span class="badge ${bc}">${c}</span>`:`<span style="color:${i===0?'var(--text)':'var(--text2)'}">${c}</span>`).join('')}
-      </div>`;
+      html+=`
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr 0.9fr;
+                    gap:4px;padding:9px 6px;border-bottom:1px solid rgba(15,163,163,0.07);
+                    font-size:10px;align-items:center;cursor:pointer"
+             onmouseenter="this.style.background='rgba(15,163,163,0.07)'"
+             onmouseleave="this.style.background=''">
+          ${r.map((c,i)=>i===3
+            ?`<span class="badge ${bc}">${c}</span>`
+            :`<span style="color:${i===0?'var(--text)':'var(--text2)'}">${c}</span>`
+          ).join('')}
+        </div>`;
     });
     el.innerHTML=`<div style="padding:0 2px">${html}</div>`;
   }
@@ -1194,6 +1266,9 @@ document.getElementById('mob-search-input').addEventListener('keydown',function(
   e.target.blur();
 });
 window.mobAreaBtn=mobAreaBtn;
+
+// Pre-render sheet so tabs work immediately on first tap
+renderSheetContent();
 
 notify('🚢 Berthwise — Constellation Port live');
 requestAnimationFrame(animate);
